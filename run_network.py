@@ -34,6 +34,8 @@ def main(
     p_mode_1: bool = False,
     p_mode_2: bool = False,
     p_mode_3: bool = False,
+    use_reconstruction: bool = False,
+    max_pool: bool = True,
 ) -> None:
 
     lr_limit: float = 1e-9
@@ -56,7 +58,7 @@ def main(
         prefix = "cnn"
 
     default_path: str = (
-        f"{prefix}_{iterations}_{cnn_top}_{lr_initial_cnn}_{lr_initial_nnmf}_{local_learning_0}_{local_learning_1}_{local_learning_2}_{local_learning_kl}"
+        f"{prefix}_{iterations}_{cnn_top}_{lr_initial_cnn}_{lr_initial_nnmf}_{local_learning_0}_{local_learning_1}_{local_learning_2}_{local_learning_kl}_{use_reconstruction}"
     )
     log_dir: str = f"log_{default_path}"
 
@@ -114,6 +116,8 @@ def main(
         p_mode_1=p_mode_1,
         p_mode_2=p_mode_2,
         p_mode_3=p_mode_3,
+        use_reconstruction=use_reconstruction,
+        max_pool=max_pool,
     )
     network = network.to(torch_device)
 

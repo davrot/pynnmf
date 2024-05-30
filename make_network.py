@@ -44,6 +44,8 @@ def make_network(
     p_mode_1: bool = False,
     p_mode_2: bool = False,
     p_mode_3: bool = False,
+    use_reconstruction: bool = False,
+    max_pool: bool = True,
 ) -> tuple[torch.nn.Sequential, list[int], list[int]]:
 
     if enable_onoff:
@@ -78,6 +80,7 @@ def make_network(
                     iterations=iterations,
                     local_learning=local_learning_0,
                     local_learning_kl=local_learning_kl,
+                    use_reconstruction=use_reconstruction,
                 )
             )
         else:
@@ -129,11 +132,22 @@ def make_network(
         network.append(torch.nn.ReLU())
         test_image = network[-1](test_image)
 
-    network.append(
-        torch.nn.MaxPool2d(
-            kernel_size=kernel_size_pool1, stride=stride_pool1, padding=padding_pool1
+    if max_pool:
+        network.append(
+            torch.nn.MaxPool2d(
+                kernel_size=kernel_size_pool1,
+                stride=stride_pool1,
+                padding=padding_pool1,
+            )
         )
-    )
+    else:
+        network.append(
+            torch.nn.AvgPool2d(
+                kernel_size=kernel_size_pool1,
+                stride=stride_pool1,
+                padding=padding_pool1,
+            )
+        )
     test_image = network[-1](test_image)
 
     list_other_id.append(len(network))
@@ -154,6 +168,7 @@ def make_network(
                     iterations=iterations,
                     local_learning=local_learning_1,
                     local_learning_kl=local_learning_kl,
+                    use_reconstruction=use_reconstruction,
                 )
             )
         else:
@@ -205,11 +220,22 @@ def make_network(
         network.append(torch.nn.ReLU())
         test_image = network[-1](test_image)
 
-    network.append(
-        torch.nn.MaxPool2d(
-            kernel_size=kernel_size_pool2, stride=stride_pool2, padding=padding_pool2
+    if max_pool:
+        network.append(
+            torch.nn.MaxPool2d(
+                kernel_size=kernel_size_pool2,
+                stride=stride_pool2,
+                padding=padding_pool2,
+            )
         )
-    )
+    else:
+        network.append(
+            torch.nn.AvgPool2d(
+                kernel_size=kernel_size_pool2,
+                stride=stride_pool2,
+                padding=padding_pool2,
+            )
+        )
     test_image = network[-1](test_image)
 
     list_other_id.append(len(network))
@@ -230,6 +256,7 @@ def make_network(
                     iterations=iterations,
                     local_learning=local_learning_2,
                     local_learning_kl=local_learning_kl,
+                    use_reconstruction=use_reconstruction,
                 )
             )
         else:
@@ -297,6 +324,7 @@ def make_network(
                     iterations=iterations,
                     local_learning=local_learning_3,
                     local_learning_kl=local_learning_kl,
+                    use_reconstruction=use_reconstruction,
                 )
             )
         else:

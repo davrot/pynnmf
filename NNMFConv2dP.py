@@ -24,6 +24,7 @@ class NNMFConv2dP(torch.nn.Module):
     use_convolution: bool
     local_learning: bool
     local_learning_kl: bool
+    use_reconstruction: bool
 
     def __init__(
         self,
@@ -45,6 +46,7 @@ class NNMFConv2dP(torch.nn.Module):
         use_convolution: bool = False,
         local_learning: bool = False,
         local_learning_kl: bool = False,
+        use_reconstruction: bool = False,
     ) -> None:
         factory_kwargs = {"device": device, "dtype": dtype}
 
@@ -78,6 +80,8 @@ class NNMFConv2dP(torch.nn.Module):
 
         self.local_learning = local_learning
         self.local_learning_kl = local_learning_kl
+
+        self.use_reconstruction = use_reconstruction
 
         self.weight = torch.nn.parameter.Parameter(
             torch.empty((out_channels, in_channels, *kernel_size), **factory_kwargs)
@@ -197,13 +201,12 @@ class NNMFConv2dP(torch.nn.Module):
             self.local_learning,
             self.local_learning_kl,
         )
-        self.reco = False
-        if self.reco:
-            print(h_dyn.shape)
-            print(positive_weights.shape)
-            print(input.shape)
-            exit()
-            output = torch.cat((h_dyn, input), dim=1)
+
+        if self.use_reconstruction:
+            reconstruction = torch.nn.functional.linear(
+                h_dyn.movedim(1, -1), positive_weights.T
+            ).movedim(-1, 1)
+            output = torch.cat((h_dyn, input - reconstruction), dim=1)
         else:
             output = torch.cat((h_dyn, input), dim=1)
         return output
