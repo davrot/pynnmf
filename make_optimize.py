@@ -1,6 +1,5 @@
 import torch
-from NNMFConv2d import NNMFConv2d
-from NNMFConv2dP import NNMFConv2dP
+from NNMF2d import NNMF2d
 
 
 def make_optimize(
@@ -45,7 +44,7 @@ def make_optimize(
             for netp in network[layerid].parameters():
                 list_cnn.append(netp)
 
-        if isinstance(network[layerid], (NNMFConv2d, NNMFConv2dP)):
+        if isinstance(network[layerid], NNMF2d):
             for netp in network[layerid].parameters():
                 list_nnmf.append(netp)
 

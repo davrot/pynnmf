@@ -1,7 +1,6 @@
 import torch
-from NNMFConv2d import NNMFConv2d
-from NNMFConv2dP import NNMFConv2dP
 from SplitOnOffLayer import SplitOnOffLayer
+from append_nnmf_block import append_nnmf_block
 
 
 def make_network(
@@ -11,42 +10,78 @@ def make_network(
     input_dim_y: int,
     input_number_of_channel: int,
     iterations: int,
-    init_min: float = 0.0,
-    init_max: float = 1.0,
-    use_convolution: bool = False,
-    convolution_contribution_map_enable: bool = False,
     epsilon: bool | None = None,
     positive_function_type: int = 0,
     beta: float | None = None,
-    number_of_output_channels_conv1: int = 32,
-    number_of_output_channels_conv2: int = 64,
-    number_of_output_channels_flatten2: int = 96,
-    number_of_output_channels_full1: int = 10,
-    kernel_size_conv1: tuple[int, int] = (5, 5),
-    kernel_size_pool1: tuple[int, int] = (2, 2),
-    kernel_size_conv2: tuple[int, int] = (5, 5),
-    kernel_size_pool2: tuple[int, int] = (2, 2),
-    stride_conv1: tuple[int, int] = (1, 1),
-    stride_pool1: tuple[int, int] = (2, 2),
-    stride_conv2: tuple[int, int] = (1, 1),
-    stride_pool2: tuple[int, int] = (2, 2),
-    padding_conv1: int = 0,
-    padding_pool1: int = 0,
-    padding_conv2: int = 0,
-    padding_pool2: int = 0,
-    enable_onoff: bool = False,
-    local_learning_0: bool = False,
-    local_learning_1: bool = False,
-    local_learning_2: bool = False,
-    local_learning_3: bool = False,
+    # Conv:
+    number_of_output_channels: list[int] = [32, 64, 96, 10],
+    kernel_size_conv: list[tuple[int, int]] = [
+        (5, 5),
+        (5, 5),
+        (-1, -1),  # Take the whole input image x and y size
+        (1, 1),
+    ],
+    stride_conv: list[tuple[int, int]] = [
+        (1, 1),
+        (1, 1),
+        (1, 1),
+        (1, 1),
+    ],
+    padding_conv: list[tuple[int, int]] = [
+        (0, 0),
+        (0, 0),
+        (0, 0),
+        (0, 0),
+    ],
+    dilation_conv: list[tuple[int, int]] = [
+        (1, 1),
+        (1, 1),
+        (1, 1),
+        (1, 1),
+    ],
+    # Pool:
+    kernel_size_pool: list[tuple[int, int]] = [
+        (2, 2),
+        (2, 2),
+        (-1, -1),  # No pooling layer
+        (-1, -1),  # No pooling layer
+    ],
+    stride_pool: list[tuple[int, int]] = [
+        (2, 2),
+        (2, 2),
+        (-1, -1),
+        (-1, -1),
+    ],
+    padding_pool: list[tuple[int, int]] = [
+        (0, 0),
+        (0, 0),
+        (0, 0),
+        (0, 0),
+    ],
+    dilation_pool: list[tuple[int, int]] = [
+        (1, 1),
+        (1, 1),
+        (1, 1),
+        (1, 1),
+    ],
+    local_learning: list[bool] = [False, False, False, False],
+    skip_connection: list[bool] = [False, False, False, False],
     local_learning_kl: bool = True,
-    p_mode_0: bool = False,
-    p_mode_1: bool = False,
-    p_mode_2: bool = False,
-    p_mode_3: bool = False,
     use_reconstruction: bool = False,
     max_pool: bool = True,
+    enable_onoff: bool = False,
 ) -> tuple[torch.nn.Sequential, list[int], list[int]]:
+
+    assert len(number_of_output_channels) == len(kernel_size_conv)
+    assert len(number_of_output_channels) == len(stride_conv)
+    assert len(number_of_output_channels) == len(padding_conv)
+    assert len(number_of_output_channels) == len(dilation_conv)
+    assert len(number_of_output_channels) == len(kernel_size_pool)
+    assert len(number_of_output_channels) == len(stride_pool)
+    assert len(number_of_output_channels) == len(padding_pool)
+    assert len(number_of_output_channels) == len(dilation_pool)
+    assert len(number_of_output_channels) == len(local_learning)
+    assert len(number_of_output_channels) == len(skip_connection)
 
     if enable_onoff:
         input_number_of_channel *= 2
@@ -62,316 +97,86 @@ def make_network(
         network.append(SplitOnOffLayer())
         test_image = network[-1](test_image)
 
-    list_other_id.append(len(network))
-    if use_nnmf:
-        if p_mode_0:
-            network.append(
-                NNMFConv2dP(
-                    in_channels=test_image.shape[1],
-                    out_channels=number_of_output_channels_conv1,
-                    kernel_size=kernel_size_conv1,
-                    convolution_contribution_map_enable=convolution_contribution_map_enable,
-                    epsilon=epsilon,
-                    positive_function_type=positive_function_type,
-                    init_min=init_min,
-                    init_max=init_max,
-                    beta=beta,
-                    use_convolution=use_convolution,
-                    iterations=iterations,
-                    local_learning=local_learning_0,
-                    local_learning_kl=local_learning_kl,
-                    use_reconstruction=use_reconstruction,
-                )
+    for block_id in range(0, len(number_of_output_channels)):
+        if use_nnmf:
+            test_image = append_nnmf_block(
+                network=network,
+                out_channels=number_of_output_channels[block_id],
+                test_image=test_image,
+                list_other_id=list_other_id,
+                dilation=dilation_conv[block_id],
+                padding=padding_conv[block_id],
+                stride=stride_conv[block_id],
+                kernel_size=kernel_size_conv[block_id],
+                epsilon=epsilon,
+                positive_function_type=positive_function_type,
+                beta=beta,
+                iterations=iterations,
+                local_learning=local_learning[block_id],
+                local_learning_kl=local_learning_kl,
+                use_reconstruction=use_reconstruction,
+                skip_connection=skip_connection[block_id],
             )
         else:
+            list_other_id.append(len(network))
+
+            kernel_size_conv_internal = list(kernel_size_conv[block_id])
+
+            if kernel_size_conv[block_id][0] == -1:
+                kernel_size_conv_internal[0] = test_image.shape[-2]
+
+            if kernel_size_conv[block_id][1] == -1:
+                kernel_size_conv_internal[1] = test_image.shape[-1]
+
             network.append(
-                NNMFConv2d(
+                torch.nn.Conv2d(
                     in_channels=test_image.shape[1],
-                    out_channels=number_of_output_channels_conv1,
-                    kernel_size=kernel_size_conv1,
-                    convolution_contribution_map_enable=convolution_contribution_map_enable,
-                    epsilon=epsilon,
-                    positive_function_type=positive_function_type,
-                    init_min=init_min,
-                    init_max=init_max,
-                    beta=beta,
-                    use_convolution=use_convolution,
-                    iterations=iterations,
-                    local_learning=local_learning_0,
-                    local_learning_kl=local_learning_kl,
+                    out_channels=number_of_output_channels[block_id],
+                    kernel_size=kernel_size_conv_internal,
+                    stride=1,
+                    padding=0,
                 )
             )
-        test_image = network[-1](test_image)
-    else:
-        network.append(
-            torch.nn.Conv2d(
-                in_channels=test_image.shape[1],
-                out_channels=number_of_output_channels_conv1,
-                kernel_size=kernel_size_conv1,
-                stride=stride_conv1,
-                padding=padding_conv1,
-            )
-        )
-        test_image = network[-1](test_image)
-        network.append(torch.nn.ReLU())
-        test_image = network[-1](test_image)
-
-    if cnn_top:
-        list_cnn_top_id.append(len(network))
-        network.append(
-            torch.nn.Conv2d(
-                in_channels=test_image.shape[1],
-                out_channels=number_of_output_channels_conv1,
-                kernel_size=(1, 1),
-                stride=(1, 1),
-                padding=(0, 0),
-                bias=True,
-            )
-        )
-        test_image = network[-1](test_image)
-        network.append(torch.nn.ReLU())
-        test_image = network[-1](test_image)
-
-    if max_pool:
-        network.append(
-            torch.nn.MaxPool2d(
-                kernel_size=kernel_size_pool1,
-                stride=stride_pool1,
-                padding=padding_pool1,
-            )
-        )
-    else:
-        network.append(
-            torch.nn.AvgPool2d(
-                kernel_size=kernel_size_pool1,
-                stride=stride_pool1,
-                padding=padding_pool1,
-            )
-        )
-    test_image = network[-1](test_image)
-
-    list_other_id.append(len(network))
-    if use_nnmf:
-        if p_mode_1:
-            network.append(
-                NNMFConv2dP(
-                    in_channels=test_image.shape[1],
-                    out_channels=number_of_output_channels_conv2,
-                    kernel_size=kernel_size_conv2,
-                    convolution_contribution_map_enable=convolution_contribution_map_enable,
-                    epsilon=epsilon,
-                    positive_function_type=positive_function_type,
-                    init_min=init_min,
-                    init_max=init_max,
-                    beta=beta,
-                    use_convolution=use_convolution,
-                    iterations=iterations,
-                    local_learning=local_learning_1,
-                    local_learning_kl=local_learning_kl,
-                    use_reconstruction=use_reconstruction,
-                )
-            )
-        else:
-            network.append(
-                NNMFConv2d(
-                    in_channels=test_image.shape[1],
-                    out_channels=number_of_output_channels_conv2,
-                    kernel_size=kernel_size_conv2,
-                    convolution_contribution_map_enable=convolution_contribution_map_enable,
-                    epsilon=epsilon,
-                    positive_function_type=positive_function_type,
-                    init_min=init_min,
-                    init_max=init_max,
-                    beta=beta,
-                    use_convolution=use_convolution,
-                    iterations=iterations,
-                    local_learning=local_learning_1,
-                    local_learning_kl=local_learning_kl,
-                )
-            )
-        test_image = network[-1](test_image)
-    else:
-        network.append(
-            torch.nn.Conv2d(
-                in_channels=test_image.shape[1],
-                out_channels=number_of_output_channels_conv2,
-                kernel_size=kernel_size_conv2,
-                stride=stride_conv2,
-                padding=padding_conv2,
-            )
-        )
-        test_image = network[-1](test_image)
-        network.append(torch.nn.ReLU())
-        test_image = network[-1](test_image)
-
-    if cnn_top:
-        list_cnn_top_id.append(len(network))
-        network.append(
-            torch.nn.Conv2d(
-                in_channels=test_image.shape[1],
-                out_channels=number_of_output_channels_conv2,
-                kernel_size=(1, 1),
-                stride=(1, 1),
-                padding=(0, 0),
-                bias=True,
-            )
-        )
-        test_image = network[-1](test_image)
-        network.append(torch.nn.ReLU())
-        test_image = network[-1](test_image)
-
-    if max_pool:
-        network.append(
-            torch.nn.MaxPool2d(
-                kernel_size=kernel_size_pool2,
-                stride=stride_pool2,
-                padding=padding_pool2,
-            )
-        )
-    else:
-        network.append(
-            torch.nn.AvgPool2d(
-                kernel_size=kernel_size_pool2,
-                stride=stride_pool2,
-                padding=padding_pool2,
-            )
-        )
-    test_image = network[-1](test_image)
-
-    list_other_id.append(len(network))
-    if use_nnmf:
-        if p_mode_2:
-            network.append(
-                NNMFConv2dP(
-                    in_channels=test_image.shape[1],
-                    out_channels=number_of_output_channels_flatten2,
-                    kernel_size=(test_image.shape[2], test_image.shape[3]),
-                    convolution_contribution_map_enable=convolution_contribution_map_enable,
-                    epsilon=epsilon,
-                    positive_function_type=positive_function_type,
-                    init_min=init_min,
-                    init_max=init_max,
-                    beta=beta,
-                    use_convolution=use_convolution,
-                    iterations=iterations,
-                    local_learning=local_learning_2,
-                    local_learning_kl=local_learning_kl,
-                    use_reconstruction=use_reconstruction,
-                )
-            )
-        else:
-            network.append(
-                NNMFConv2d(
-                    in_channels=test_image.shape[1],
-                    out_channels=number_of_output_channels_flatten2,
-                    kernel_size=(test_image.shape[2], test_image.shape[3]),
-                    convolution_contribution_map_enable=convolution_contribution_map_enable,
-                    epsilon=epsilon,
-                    positive_function_type=positive_function_type,
-                    init_min=init_min,
-                    init_max=init_max,
-                    beta=beta,
-                    use_convolution=use_convolution,
-                    iterations=iterations,
-                    local_learning=local_learning_2,
-                    local_learning_kl=local_learning_kl,
-                )
-            )
-        test_image = network[-1](test_image)
-    else:
-        network.append(
-            torch.nn.Conv2d(
-                in_channels=test_image.shape[1],
-                out_channels=number_of_output_channels_flatten2,
-                kernel_size=(test_image.shape[2], test_image.shape[3]),
-            )
-        )
-        test_image = network[-1](test_image)
-        network.append(torch.nn.ReLU())
-        test_image = network[-1](test_image)
-
-    if cnn_top:
-        list_cnn_top_id.append(len(network))
-        network.append(
-            torch.nn.Conv2d(
-                in_channels=test_image.shape[1],
-                out_channels=number_of_output_channels_flatten2,
-                kernel_size=(1, 1),
-                stride=(1, 1),
-                padding=(0, 0),
-                bias=True,
-            )
-        )
-        test_image = network[-1](test_image)
-        network.append(torch.nn.ReLU())
-        test_image = network[-1](test_image)
-
-    list_other_id.append(len(network))
-    if use_nnmf:
-        if p_mode_3:
-            network.append(
-                NNMFConv2dP(
-                    in_channels=test_image.shape[1],
-                    out_channels=number_of_output_channels_full1,
-                    kernel_size=(test_image.shape[2], test_image.shape[3]),
-                    convolution_contribution_map_enable=convolution_contribution_map_enable,
-                    epsilon=epsilon,
-                    positive_function_type=positive_function_type,
-                    init_min=init_min,
-                    init_max=init_max,
-                    beta=beta,
-                    use_convolution=use_convolution,
-                    iterations=iterations,
-                    local_learning=local_learning_3,
-                    local_learning_kl=local_learning_kl,
-                    use_reconstruction=use_reconstruction,
-                )
-            )
-        else:
-            network.append(
-                NNMFConv2d(
-                    in_channels=test_image.shape[1],
-                    out_channels=number_of_output_channels_full1,
-                    kernel_size=(test_image.shape[2], test_image.shape[3]),
-                    convolution_contribution_map_enable=convolution_contribution_map_enable,
-                    epsilon=epsilon,
-                    positive_function_type=positive_function_type,
-                    init_min=init_min,
-                    init_max=init_max,
-                    beta=beta,
-                    use_convolution=use_convolution,
-                    iterations=iterations,
-                    local_learning=local_learning_3,
-                    local_learning_kl=local_learning_kl,
-                )
-            )
-        test_image = network[-1](test_image)
-    else:
-        network.append(
-            torch.nn.Conv2d(
-                in_channels=test_image.shape[1],
-                out_channels=number_of_output_channels_full1,
-                kernel_size=(test_image.shape[2], test_image.shape[3]),
-            )
-        )
-        test_image = network[-1](test_image)
-        if cnn_top:
-            network.append(torch.nn.ReLU())
             test_image = network[-1](test_image)
+            if cnn_top or block_id < len(number_of_output_channels) - 1:
+                network.append(torch.nn.ReLU())
+                test_image = network[-1](test_image)
 
-    if cnn_top:
-        list_cnn_top_id.append(len(network))
-        network.append(
-            torch.nn.Conv2d(
-                in_channels=test_image.shape[1],
-                out_channels=number_of_output_channels_full1,
-                kernel_size=(1, 1),
-                stride=(1, 1),
-                padding=(0, 0),
-                bias=True,
+        if cnn_top:
+            list_cnn_top_id.append(len(network))
+            network.append(
+                torch.nn.Conv2d(
+                    in_channels=test_image.shape[1],
+                    out_channels=number_of_output_channels[block_id],
+                    kernel_size=(1, 1),
+                    stride=(1, 1),
+                    padding=(0, 0),
+                    bias=True,
+                )
             )
-        )
-        test_image = network[-1](test_image)
+            test_image = network[-1](test_image)
+            if block_id < len(number_of_output_channels) - 1:
+                network.append(torch.nn.ReLU())
+                test_image = network[-1](test_image)
+
+        if (kernel_size_pool[block_id][0] > 0) and (kernel_size_pool[block_id][1] > 0):
+            if max_pool:
+                network.append(
+                    torch.nn.MaxPool2d(
+                        kernel_size=kernel_size_pool[block_id],
+                        stride=stride_pool[block_id],
+                        padding=padding_pool[block_id],
+                    )
+                )
+            else:
+                network.append(
+                    torch.nn.AvgPool2d(
+                        kernel_size=kernel_size_pool[block_id],
+                        stride=stride_pool[block_id],
+                        padding=padding_pool[block_id],
+                    )
+                )
+            test_image = network[-1](test_image)
 
     network.append(torch.nn.Flatten())
     test_image = network[-1](test_image)
