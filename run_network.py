@@ -58,7 +58,7 @@ def main(
         prefix = "cnn"
 
     default_path: str = (
-        f"{prefix}_{iterations}_{cnn_top}_{lr_initial_cnn}_{lr_initial_nnmf}_{local_learning_0}_{local_learning_1}_{local_learning_2}_{local_learning_kl}_{use_reconstruction}"
+        f"{prefix}_iter{iterations}_cnntop{cnn_top}_lrcnn{lr_initial_cnn}_lrnnmf{lr_initial_nnmf}_0{local_learning_0}_1{local_learning_1}_2{local_learning_2}_3{local_learning_3}_kl{local_learning_kl}_reco{use_reconstruction}_max{max_pool}"
     )
     log_dir: str = f"log_{default_path}"
 
