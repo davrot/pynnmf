@@ -104,17 +104,18 @@ class NNMF2d(torch.nn.Module):
             self.local_learning,
             self.local_learning_kl,
         )
-        if self.skip_connection:
-            if self.use_reconstruction:
-                reconstruction = torch.nn.functional.linear(
-                    h_dyn.movedim(1, -1), positive_weights.T
-                ).movedim(-1, 1)
-                output = torch.cat((h_dyn, input - reconstruction), dim=1)
-            else:
-                output = torch.cat((h_dyn, input), dim=1)
-            return output
-        else:
-            return h_dyn
+        # if self.skip_connection:
+        #     if self.use_reconstruction:
+        #         reconstruction = torch.nn.functional.linear(
+        #             h_dyn.movedim(1, -1), positive_weights.T
+        #         ).movedim(-1, 1)
+        #         output = torch.cat((h_dyn, input - reconstruction), dim=1)
+        #     else:
+        #         output = torch.cat((h_dyn, input), dim=1)
+        #     return output
+        # else:
+        #     return h_dyn
+        return h_dyn
 
 
 class FunctionalNNMF2d(torch.autograd.Function):

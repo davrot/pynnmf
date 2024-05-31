@@ -2,6 +2,7 @@ import torch
 from append_input_conv2d import append_input_conv2d
 from L1NormLayer import L1NormLayer
 from NNMF2d import NNMF2d
+from Y import Y
 
 
 def append_nnmf_block(
@@ -44,20 +45,43 @@ def append_nnmf_block(
     test_image = network[-1](test_image)
 
     list_other_id.append(len(network))
-    network.append(
-        NNMF2d(
-            in_channels=test_image.shape[1],
-            out_channels=out_channels,
-            epsilon=epsilon,
-            positive_function_type=positive_function_type,
-            beta=beta,
-            iterations=iterations,
-            local_learning=local_learning,
-            local_learning_kl=local_learning_kl,
-            use_reconstruction=use_reconstruction,
-            skip_connection=skip_connection,
+    if skip_connection:
+        network.append(
+            Y(
+                torch.nn.Sequential(
+                    torch.nn.Sequential(
+                        NNMF2d(
+                            in_channels=test_image.shape[1],
+                            out_channels=out_channels,
+                            epsilon=epsilon,
+                            positive_function_type=positive_function_type,
+                            beta=beta,
+                            iterations=iterations,
+                            local_learning=local_learning,
+                            local_learning_kl=local_learning_kl,
+                            use_reconstruction=use_reconstruction,
+                            skip_connection=skip_connection,
+                        )
+                    ),
+                    torch.nn.Sequential(torch.nn.Identity()),
+                )
+            )
         )
-    )
+    else:
+        network.append(
+            NNMF2d(
+                in_channels=test_image.shape[1],
+                out_channels=out_channels,
+                epsilon=epsilon,
+                positive_function_type=positive_function_type,
+                beta=beta,
+                iterations=iterations,
+                local_learning=local_learning,
+                local_learning_kl=local_learning_kl,
+                use_reconstruction=use_reconstruction,
+                skip_connection=skip_connection,
+            )
+        )
     test_image = network[-1](test_image)
 
     return test_image
