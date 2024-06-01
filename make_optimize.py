@@ -1,5 +1,6 @@
 import torch
 from NNMF2d import NNMF2d
+from Y import Y
 
 
 def make_optimize(
@@ -43,6 +44,13 @@ def make_optimize(
         if isinstance(network[layerid], torch.nn.Conv2d):
             for netp in network[layerid].parameters():
                 list_cnn.append(netp)
+
+        if isinstance(network[layerid], Y):
+            for sublayer in network[layerid].segments:
+                for subsublayer in sublayer:
+                    if isinstance(subsublayer, NNMF2d):
+                        for netp in subsublayer.parameters():
+                            list_nnmf.append(netp)
 
         if isinstance(network[layerid], NNMF2d):
             for netp in network[layerid].parameters():

@@ -127,6 +127,7 @@ def main(
 
     print(network)
 
+
     (
         optimizer_nnmf,
         optimizer_cnn,
